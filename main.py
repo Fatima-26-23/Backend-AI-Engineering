@@ -1,7 +1,14 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 app = FastAPI()
+
+
+# Request model
+class TaskCreate(BaseModel):
+    title: str
+
 
 # In-memory list of tasks
 tasks = [
@@ -11,7 +18,6 @@ tasks = [
 ]
 
 
-# Root endpoint
 @app.get("/")
 async def root():
     return {
@@ -21,21 +27,16 @@ async def root():
     }
 
 
-# Health check endpoint
 @app.get("/health")
 async def health():
-    return {
-        "status": "ok"
-    }
+    return {"status": "ok"}
 
 
-# Get all tasks
 @app.get("/tasks")
 async def get_tasks():
     return tasks
 
 
-# Get a single task by ID
 @app.get("/tasks/{id}")
 async def get_task(id: int):
     for task in tasks:
@@ -46,3 +47,23 @@ async def get_task(id: int):
         status_code=404,
         content={"error": f"Task {id} not found"}
     )
+
+
+@app.post("/tasks", status_code=status.HTTP_201_CREATED)
+async def create_task(task: TaskCreate):
+
+    if not task.title.strip():
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Title cannot be empty"}
+        )
+
+    new_task = {
+        "id": len(tasks) + 1,
+        "title": task.title,
+        "done": False
+    }
+
+    tasks.append(new_task)
+
+    return new_task
