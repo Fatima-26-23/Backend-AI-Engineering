@@ -24,7 +24,11 @@ tasks = [
 
 
 # Root endpoint
-@app.get("/")
+@app.get(
+    "/",
+    summary="API Information",
+    description="Returns basic information about the Task API."
+)
 async def root():
     return {
         "name": "Task API",
@@ -34,7 +38,11 @@ async def root():
 
 
 # Health endpoint
-@app.get("/health")
+@app.get(
+    "/health",
+    summary="Health Check",
+    description="Checks whether the API is running."
+)
 async def health():
     return {
         "status": "ok"
@@ -42,13 +50,21 @@ async def health():
 
 
 # Get all tasks
-@app.get("/tasks")
+@app.get(
+    "/tasks",
+    summary="Get All Tasks",
+    description="Returns the complete list of tasks."
+)
 async def get_tasks():
     return tasks
 
 
 # Get a single task
-@app.get("/tasks/{id}")
+@app.get(
+    "/tasks/{id}",
+    summary="Get Task by ID",
+    description="Returns a single task using its ID."
+)
 async def get_task(id: int):
     for task in tasks:
         if task["id"] == id:
@@ -61,7 +77,12 @@ async def get_task(id: int):
 
 
 # Create a new task
-@app.post("/tasks", status_code=status.HTTP_201_CREATED)
+@app.post(
+    "/tasks",
+    status_code=status.HTTP_201_CREATED,
+    summary="Create Task",
+    description="Creates a new task."
+)
 async def create_task(task: TaskCreate):
 
     if not task.title.strip():
@@ -82,7 +103,11 @@ async def create_task(task: TaskCreate):
 
 
 # Update a task
-@app.put("/tasks/{id}")
+@app.put(
+    "/tasks/{id}",
+    summary="Update Task",
+    description="Updates the title and completion status of a task."
+)
 async def update_task(id: int, updated_task: TaskUpdate):
 
     if not updated_task.title.strip():
@@ -104,7 +129,12 @@ async def update_task(id: int, updated_task: TaskUpdate):
 
 
 # Delete a task
-@app.delete("/tasks/{id}", status_code=status.HTTP_204_NO_CONTENT)
+@app.delete(
+    "/tasks/{id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete Task",
+    description="Deletes a task using its ID."
+)
 async def delete_task(id: int):
 
     for task in tasks:
