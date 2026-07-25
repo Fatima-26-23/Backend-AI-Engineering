@@ -16,10 +16,6 @@ class TaskUpdate(BaseModel):
     done: bool
 
 
-# Temporary in-memory list for Stage 3 and Stage 4
-tasks = []
-
-
 # Root endpoint
 @app.get(
     "/",
@@ -46,7 +42,7 @@ async def health():
     }
 
 
-# Get all tasks (Database)
+# Get all tasks
 @app.get(
     "/tasks",
     summary="Get All Tasks",
@@ -69,7 +65,7 @@ async def get_tasks():
     return tasks
 
 
-# Get a single task (Database)
+# Get a single task
 @app.get(
     "/tasks/{id}",
     summary="Get Task by ID",
@@ -97,7 +93,7 @@ async def get_task(id: int):
     }
 
 
-# Create a new task (Database)
+# Create a new task
 @app.post(
     "/tasks",
     status_code=status.HTTP_201_CREATED,
@@ -128,7 +124,7 @@ async def create_task(task: TaskCreate):
     }
 
 
-# Update a task (Still using in-memory list for Stage 2)
+# Update a task
 @app.put(
     "/tasks/{id}",
     summary="Update Task",
@@ -142,19 +138,31 @@ async def update_task(id: int, updated_task: TaskUpdate):
             content={"error": "Title cannot be empty"}
         )
 
-    for task in tasks:
-        if task["id"] == id:
-            task["title"] = updated_task.title
-            task["done"] = updated_task.done
-            return task
-
-    return JSONResponse(
-        status_code=404,
-        content={"error": f"Task {id} not found"}
+    cursor.execute(
+        """
+        UPDATE tasks
+        SET title = ?, done = ?
+        WHERE id = ?
+        """,
+        (updated_task.title, updated_task.done, id)
     )
 
+    conn.commit()
 
-# Delete a task (Still using in-memory list for Stage 2)
+    if cursor.rowcount == 0:
+        return JSONResponse(
+            status_code=404,
+            content={"error": f"Task {id} not found"}
+        )
+
+    return {
+        "id": id,
+        "title": updated_task.title,
+        "done": updated_task.done
+    }
+
+
+# Delete a task
 @app.delete(
     "/tasks/{id}",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -163,12 +171,17 @@ async def update_task(id: int, updated_task: TaskUpdate):
 )
 async def delete_task(id: int):
 
-    for task in tasks:
-        if task["id"] == id:
-            tasks.remove(task)
-            return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-    return JSONResponse(
-        status_code=404,
-        content={"error": f"Task {id} not found"}
+    cursor.execute(
+        "DELETE FROM tasks WHERE id = ?",
+        (id,)
     )
+
+    conn.commit()
+
+    if cursor.rowcount == 0:
+        return JSONResponse(
+            status_code=404,
+            content={"error": f"Task {id} not found"}
+        )
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
