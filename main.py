@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from database import cursor
+from database import conn, cursor
 
 app = FastAPI()
 
@@ -14,6 +14,10 @@ class TaskCreate(BaseModel):
 class TaskUpdate(BaseModel):
     title: str
     done: bool
+
+
+# Temporary in-memory list for Stage 3 and Stage 4
+tasks = []
 
 
 # Root endpoint
@@ -49,6 +53,7 @@ async def health():
     description="Returns the complete list of tasks."
 )
 async def get_tasks():
+
     cursor.execute("SELECT * FROM tasks")
     rows = cursor.fetchall()
 
@@ -71,6 +76,7 @@ async def get_tasks():
     description="Returns a single task using its ID."
 )
 async def get_task(id: int):
+
     cursor.execute(
         "SELECT * FROM tasks WHERE id = ?",
         (id,)
@@ -91,10 +97,7 @@ async def get_task(id: int):
     }
 
 
-# Create a new task (Still using in-memory list for Stage 1)
-tasks = []
-
-
+# Create a new task (Database)
 @app.post(
     "/tasks",
     status_code=status.HTTP_201_CREATED,
@@ -109,18 +112,23 @@ async def create_task(task: TaskCreate):
             content={"error": "Title cannot be empty"}
         )
 
-    new_task = {
-        "id": len(tasks) + 1,
+    cursor.execute(
+        "INSERT INTO tasks (title, done) VALUES (?, ?)",
+        (task.title, False)
+    )
+
+    conn.commit()
+
+    new_id = cursor.lastrowid
+
+    return {
+        "id": new_id,
         "title": task.title,
         "done": False
     }
 
-    tasks.append(new_task)
 
-    return new_task
-
-
-# Update a task (Still using in-memory list for Stage 1)
+# Update a task (Still using in-memory list for Stage 2)
 @app.put(
     "/tasks/{id}",
     summary="Update Task",
@@ -146,7 +154,7 @@ async def update_task(id: int, updated_task: TaskUpdate):
     )
 
 
-# Delete a task (Still using in-memory list for Stage 1)
+# Delete a task (Still using in-memory list for Stage 2)
 @app.delete(
     "/tasks/{id}",
     status_code=status.HTTP_204_NO_CONTENT,
