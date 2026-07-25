@@ -1,87 +1,128 @@
 # Task API
 
-A simple RESTful Task API built with FastAPI. It demonstrates CRUD (Create, Read, Update, Delete) operations using an in-memory list. The API also includes automatically generated Swagger UI documentation.
+A RESTful Task Management API built with **FastAPI** and **SQLite**. The API supports creating, reading, updating, and deleting tasks while storing data in a persistent SQLite database.
 
----
+## Features
+
+- Create tasks
+- View all tasks
+- View a task by ID
+- Update tasks
+- Delete tasks
+- Persistent data storage using SQLite
+
+## Why SQLite?
+
+SQLite was chosen because it is:
+
+- Lightweight and serverless
+- Built into Python (`sqlite3` module)
+- Easy to set up with no additional database server
+- Ideal for small projects, learning SQL, and local development
+
+## Database Location
+
+The SQLite database is stored in the project root as:
+
+```
+tasks.db
+```
+
+The database file is created automatically the first time the application is run.
+
+## Project Structure
+
+```
+project/
+│
+├── main.py
+├── database.py
+├── tasks.db
+├── requirements.txt
+└── README.md
+```
 
 ## Installation
 
-### Clone the repository
+1. Clone the repository.
 
 ```bash
-git clone https://github.com/Fatima-26-23/task-api.git
-cd task-api
+git clone <your-repository-url>
 ```
 
-### Install dependencies
+2. Move into the project directory.
 
 ```bash
-pip install fastapi uvicorn
+cd <your-project-folder>
 ```
 
-### Run the API
+3. Create a virtual environment.
+
+**Windows**
 
 ```bash
-fastapi dev main.py
+python -m venv venv
+venv\Scripts\activate
 ```
 
-Open the API documentation:
+4. Install dependencies.
+
+```bash
+pip install -r requirements.txt
+```
+
+## Running the Project
+
+Start the FastAPI server using:
+
+```bash
+uvicorn main:app --reload
+```
+
+The API will be available at:
+
+```
+http://127.0.0.1:8000
+```
+
+Swagger documentation:
 
 ```
 http://127.0.0.1:8000/docs
 ```
 
----
+## Automatic Database Creation
 
-## API Endpoints
+When the project starts for the first time:
 
-| Method | Endpoint | Description |
-|---------|----------|-------------|
-| GET | / | API information |
-| GET | /health | Health check |
-| GET | /tasks | Get all tasks |
-| GET | /tasks/{id} | Get a task by ID |
-| POST | /tasks | Create a new task |
-| PUT | /tasks/{id} | Update a task |
-| DELETE | /tasks/{id} | Delete a task |
+- `tasks.db` is created automatically.
+- The `tasks` table is created if it does not exist.
+- Three sample tasks are inserted only if the table is empty.
 
----
+No manual database setup is required.
 
-## Example curl Output
+## Example SQL Query
 
-Request:
+The following SQL query was executed during development:
 
-```bash
-curl -i http://127.0.0.1:8000/tasks/1
+```sql
+SELECT * FROM tasks;
 ```
 
-Example Response:
+This query returns every task stored in the database.
 
-```text
-HTTP/1.1 200 OK
-content-type: application/json
+## Database Screenshot
 
-{"id":1,"title":"Buy groceries","done":false}
-```
+Insert a screenshot of your SQLite database viewer here.
 
----
-
-## Swagger UI
-
-Swagger UI is available at:
+Example:
 
 ```
-http://127.0.0.1:8000/docs
+images/sqlite-viewer.png
 ```
 
-### Screenshot
+Then display it:
 
-## Swagger UI
-
-### GET /tasks
-
-![GET Tasks](images/swagger-get.png)
-
-### POST /tasks
-
-![POST Task](images/swagger-post.png)
+```markdown
+![SQLite Database](images/sqlite-viewer.png)
+```
