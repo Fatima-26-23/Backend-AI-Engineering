@@ -1,7 +1,8 @@
 from fastapi import FastAPI, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-import database
+from database import cursor
+
 app = FastAPI()
 
 
@@ -13,14 +14,6 @@ class TaskCreate(BaseModel):
 class TaskUpdate(BaseModel):
     title: str
     done: bool
-
-
-# In-memory list of tasks
-tasks = [
-    {"id": 1, "title": "Buy groceries", "done": False},
-    {"id": 2, "title": "Complete assignment", "done": True},
-    {"id": 3, "title": "Go for a walk", "done": False},
-]
 
 
 # Root endpoint
@@ -49,34 +42,59 @@ async def health():
     }
 
 
-# Get all tasks
+# Get all tasks (Database)
 @app.get(
     "/tasks",
     summary="Get All Tasks",
     description="Returns the complete list of tasks."
 )
 async def get_tasks():
+    cursor.execute("SELECT * FROM tasks")
+    rows = cursor.fetchall()
+
+    tasks = []
+
+    for row in rows:
+        tasks.append({
+            "id": row[0],
+            "title": row[1],
+            "done": bool(row[2])
+        })
+
     return tasks
 
 
-# Get a single task
+# Get a single task (Database)
 @app.get(
     "/tasks/{id}",
     summary="Get Task by ID",
     description="Returns a single task using its ID."
 )
 async def get_task(id: int):
-    for task in tasks:
-        if task["id"] == id:
-            return task
-
-    return JSONResponse(
-        status_code=404,
-        content={"error": f"Task {id} not found"}
+    cursor.execute(
+        "SELECT * FROM tasks WHERE id = ?",
+        (id,)
     )
 
+    row = cursor.fetchone()
 
-# Create a new task
+    if row is None:
+        return JSONResponse(
+            status_code=404,
+            content={"error": f"Task {id} not found"}
+        )
+
+    return {
+        "id": row[0],
+        "title": row[1],
+        "done": bool(row[2])
+    }
+
+
+# Create a new task (Still using in-memory list for Stage 1)
+tasks = []
+
+
 @app.post(
     "/tasks",
     status_code=status.HTTP_201_CREATED,
@@ -102,7 +120,7 @@ async def create_task(task: TaskCreate):
     return new_task
 
 
-# Update a task
+# Update a task (Still using in-memory list for Stage 1)
 @app.put(
     "/tasks/{id}",
     summary="Update Task",
@@ -128,7 +146,7 @@ async def update_task(id: int, updated_task: TaskUpdate):
     )
 
 
-# Delete a task
+# Delete a task (Still using in-memory list for Stage 1)
 @app.delete(
     "/tasks/{id}",
     status_code=status.HTTP_204_NO_CONTENT,
