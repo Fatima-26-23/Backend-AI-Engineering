@@ -16,6 +16,9 @@ class TaskUpdate(BaseModel):
     title: str
     done: bool
 
+class AuthRequest(BaseModel):
+    email: str
+    password: str
 
 # Root endpoint
 @app.get(
@@ -190,3 +193,65 @@ async def delete_task(id: int):
 @app.get("/supabase-test")
 async def supabase_test():
     return {"message": "Server running and connected to Supabase"}
+
+@app.post(
+    "/auth/signup",
+    status_code=status.HTTP_201_CREATED,
+    summary="Sign Up",
+    description="Registers a new user using Supabase Authentication."
+)
+async def signup(auth: AuthRequest):
+
+    # Validate input
+    if not auth.email.strip() or not auth.password.strip():
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Email and password are required"}
+        )
+
+    try:
+        response = supabase.auth.sign_up({
+            "email": auth.email,
+            "password": auth.password
+        })
+
+        # Return the user object from Supabase
+        return response.user
+
+    except Exception as e:
+        return JSONResponse(
+            status_code=400,
+            content={"error": str(e)}
+        )
+
+
+@app.post(
+    "/auth/login",
+    summary="Log In",
+    description="Logs in an existing user."
+)
+async def login(auth: AuthRequest):
+
+    # Validate input
+    if not auth.email.strip() or not auth.password.strip():
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Email and password are required"}
+        )
+
+    try:
+        response = supabase.auth.sign_in_with_password({
+            "email": auth.email,
+            "password": auth.password
+        })
+
+        return {
+            "access_token": response.session.access_token,
+            "refresh_token": response.session.refresh_token
+        }
+
+    except Exception:
+        return JSONResponse(
+            status_code=401,
+            content={"error": "Invalid login credentials"}
+        )
