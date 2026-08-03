@@ -269,7 +269,7 @@ async def public_info():
 @app.get(
     "/protected/profile",
     summary="Protected Profile",
-    description="Requires an access token."
+    description="Returns the authenticated user's profile."
 )
 async def protected_profile(authorization: str = Header(None)):
 
@@ -297,7 +297,20 @@ async def protected_profile(authorization: str = Header(None)):
             content={"error": "Access token required"}
         )
 
-    return {
-        "message": "Access token received.",
-        "token": token
-    }
+    try:
+        # Verify token with Supabase
+        response = supabase.auth.get_user(token)
+
+        user = response.user
+
+        return {
+            "id": user.id,
+            "email": user.email,
+            "created_at": user.created_at
+        }
+
+    except Exception:
+        return JSONResponse(
+            status_code=401,
+            content={"error": "Invalid or expired token"}
+        )
