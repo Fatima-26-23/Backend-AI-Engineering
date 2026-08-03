@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Response, status
+from fastapi import FastAPI, Response, status, Header
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from database import conn, cursor
@@ -255,3 +255,49 @@ async def login(auth: AuthRequest):
             status_code=401,
             content={"error": "Invalid login credentials"}
         )
+
+@app.get(
+    "/public/info",
+    summary="Public Information",
+    description="Accessible without authentication."
+)
+async def public_info():
+    return {
+        "message": "Welcome stranger! This info is public."
+    }
+
+@app.get(
+    "/protected/profile",
+    summary="Protected Profile",
+    description="Requires an access token."
+)
+async def protected_profile(authorization: str = Header(None)):
+
+    # Check if Authorization header exists
+    if authorization is None:
+        return JSONResponse(
+            status_code=401,
+            content={"error": "Access token required"}
+        )
+
+    # Check Bearer format
+    if not authorization.startswith("Bearer "):
+        return JSONResponse(
+            status_code=401,
+            content={"error": "Access token required"}
+        )
+
+    # Extract token
+    token = authorization.replace("Bearer ", "").strip()
+
+    # Check if token is empty
+    if not token:
+        return JSONResponse(
+            status_code=401,
+            content={"error": "Access token required"}
+        )
+
+    return {
+        "message": "Access token received.",
+        "token": token
+    }
