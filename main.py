@@ -1,11 +1,12 @@
 from fastapi import FastAPI, Response, status, Header, Depends, HTTPException
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from database import conn, cursor
 from supabase_client import supabase
 
 app = FastAPI()
-
+security = HTTPBearer()
 
 # Request Models
 class TaskCreate(BaseModel):
@@ -20,30 +21,11 @@ class AuthRequest(BaseModel):
     email: str
     password: str
 
-async def verify_user(authorization: str = Header(None)):
+async def verify_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
 
-    # Check if Authorization header exists
-    if authorization is None:
-        raise HTTPException(
-            status_code=401,
-            detail="Access token required"
-        )
-
-    # Check Bearer format
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=401,
-            detail="Access token required"
-        )
-
-    # Extract token
-    token = authorization.replace("Bearer ", "").strip()
-
-    if not token:
-        raise HTTPException(
-            status_code=401,
-            detail="Access token required"
-        )
+    token = credentials.credentials
 
     try:
         response = supabase.auth.get_user(token)
