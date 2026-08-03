@@ -2,6 +2,7 @@ from fastapi import FastAPI, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from database import conn, cursor
+from supabase_client import supabase
 
 app = FastAPI()
 
@@ -185,3 +186,7 @@ async def delete_task(id: int):
         )
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+@app.get("/supabase-test")
+async def supabase_test():
+    return {"message": "Server running and connected to Supabase"}
