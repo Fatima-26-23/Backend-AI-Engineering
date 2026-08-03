@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Response, status, Header
+from fastapi import FastAPI, Response, status, Header, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from database import conn, cursor
@@ -19,6 +19,41 @@ class TaskUpdate(BaseModel):
 class AuthRequest(BaseModel):
     email: str
     password: str
+
+async def verify_user(authorization: str = Header(None)):
+
+    # Check if Authorization header exists
+    if authorization is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Access token required"
+        )
+
+    # Check Bearer format
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=401,
+            detail="Access token required"
+        )
+
+    # Extract token
+    token = authorization.replace("Bearer ", "").strip()
+
+    if not token:
+        raise HTTPException(
+            status_code=401,
+            detail="Access token required"
+        )
+
+    try:
+        response = supabase.auth.get_user(token)
+        return response.user
+
+    except Exception:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired token"
+        )
 
 # Root endpoint
 @app.get(
@@ -271,46 +306,38 @@ async def public_info():
     summary="Protected Profile",
     description="Returns the authenticated user's profile."
 )
-async def protected_profile(authorization: str = Header(None)):
+async def protected_profile(user=Depends(verify_user)):
 
-    # Check if Authorization header exists
-    if authorization is None:
-        return JSONResponse(
-            status_code=401,
-            content={"error": "Access token required"}
-        )
+    return {
+        "id": user.id,
+        "email": user.email,
+        "created_at": user.created_at
+    }
+    
+@app.get(
+    "/protected/dashboard",
+    summary="Protected Dashboard"
+)
+async def dashboard(user=Depends(verify_user)):
 
-    # Check Bearer format
-    if not authorization.startswith("Bearer "):
-        return JSONResponse(
-            status_code=401,
-            content={"error": "Access token required"}
-        )
+    return {
+        "message": f"Welcome {user.email}!"
+    }
 
-    # Extract token
-    token = authorization.replace("Bearer ", "").strip()
-
-    # Check if token is empty
-    if not token:
-        return JSONResponse(
-            status_code=401,
-            content={"error": "Access token required"}
-        )
+@app.post(
+    "/auth/logout",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Logout"
+)
+async def logout(user=Depends(verify_user)):
 
     try:
-        # Verify token with Supabase
-        response = supabase.auth.get_user(token)
+        supabase.auth.sign_out()
 
-        user = response.user
-
-        return {
-            "id": user.id,
-            "email": user.email,
-            "created_at": user.created_at
-        }
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     except Exception:
-        return JSONResponse(
+        raise HTTPException(
             status_code=401,
-            content={"error": "Invalid or expired token"}
+            detail="Invalid or expired token"
         )
