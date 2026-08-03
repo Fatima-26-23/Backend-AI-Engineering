@@ -64,38 +64,29 @@ async def health():
 
 
 # Get all tasks
-@app.get(
-    "/tasks",
-    summary="Get All Tasks",
-    description="Returns the complete list of tasks."
-)
+@app.get("/tasks")
 async def get_tasks():
 
-    cursor.execute("SELECT * FROM tasks")
+    cursor.execute("SELECT id, title, done FROM tasks")
+
     rows = cursor.fetchall()
 
-    tasks = []
-
-    for row in rows:
-        tasks.append({
+    return [
+        {
             "id": row[0],
             "title": row[1],
-            "done": bool(row[2])
-        })
-
-    return tasks
+            "done": row[2]
+        }
+        for row in rows
+    ]
 
 
 # Get a single task
-@app.get(
-    "/tasks/{id}",
-    summary="Get Task by ID",
-    description="Returns a single task using its ID."
-)
+@app.get("/tasks/{id}")
 async def get_task(id: int):
 
     cursor.execute(
-        "SELECT * FROM tasks WHERE id = ?",
+        "SELECT id, title, done FROM tasks WHERE id=%s",
         (id,)
     )
 
@@ -110,17 +101,12 @@ async def get_task(id: int):
     return {
         "id": row[0],
         "title": row[1],
-        "done": bool(row[2])
+        "done": row[2]
     }
 
 
 # Create a new task
-@app.post(
-    "/tasks",
-    status_code=status.HTTP_201_CREATED,
-    summary="Create Task",
-    description="Creates a new task."
-)
+@app.post("/tasks", status_code=201)
 async def create_task(task: TaskCreate):
 
     if not task.title.strip():
@@ -130,13 +116,17 @@ async def create_task(task: TaskCreate):
         )
 
     cursor.execute(
-        "INSERT INTO tasks (title, done) VALUES (?, ?)",
+        """
+        INSERT INTO tasks(title, done)
+        VALUES(%s, %s)
+        RETURNING id
+        """,
         (task.title, False)
     )
 
-    conn.commit()
+    new_id = cursor.fetchone()[0]
 
-    new_id = cursor.lastrowid
+    conn.commit()
 
     return {
         "id": new_id,
@@ -146,11 +136,7 @@ async def create_task(task: TaskCreate):
 
 
 # Update a task
-@app.put(
-    "/tasks/{id}",
-    summary="Update Task",
-    description="Updates the title and completion status of a task."
-)
+@app.put("/tasks/{id}")
 async def update_task(id: int, updated_task: TaskUpdate):
 
     if not updated_task.title.strip():
@@ -162,19 +148,29 @@ async def update_task(id: int, updated_task: TaskUpdate):
     cursor.execute(
         """
         UPDATE tasks
-        SET title = ?, done = ?
-        WHERE id = ?
+        SET title=%s,
+            done=%s
+        WHERE id=%s
+        RETURNING id
         """,
-        (updated_task.title, updated_task.done, id)
+        (
+            updated_task.title,
+            updated_task.done,
+            id
+        )
     )
 
-    conn.commit()
+    row = cursor.fetchone()
 
-    if cursor.rowcount == 0:
+    if row is None:
+        conn.rollback()
+
         return JSONResponse(
             status_code=404,
             content={"error": f"Task {id} not found"}
         )
+
+    conn.commit()
 
     return {
         "id": id,
@@ -186,26 +182,32 @@ async def update_task(id: int, updated_task: TaskUpdate):
 # Delete a task
 @app.delete(
     "/tasks/{id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    summary="Delete Task",
-    description="Deletes a task using its ID."
+    status_code=204
 )
 async def delete_task(id: int):
 
     cursor.execute(
-        "DELETE FROM tasks WHERE id = ?",
+        """
+        DELETE FROM tasks
+        WHERE id=%s
+        RETURNING id
+        """,
         (id,)
     )
 
-    conn.commit()
+    row = cursor.fetchone()
 
-    if cursor.rowcount == 0:
+    if row is None:
+        conn.rollback()
+
         return JSONResponse(
             status_code=404,
             content={"error": f"Task {id} not found"}
         )
 
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    conn.commit()
+
+    return Response(status_code=204)
 
 @app.get("/supabase-test")
 async def supabase_test():

@@ -1,92 +1,167 @@
-# Task API with Authentication
+# Task API
 
-A RESTful Task API built with FastAPI.
+A RESTful Task Management API built with **FastAPI** and **PostgreSQL**, running inside **Docker**. This project provides CRUD operations for tasks while demonstrating persistent database storage, environment configuration, and containerized deployment.
 
 ## Features
 
-- CRUD operations for tasks
-- SQLite database
-- User authentication using Supabase
-- JWT protected routes
-- Swagger UI documentation
-- Bearer Authentication
+- Create, Read, Update, and Delete tasks
+- PostgreSQL database for persistent storage
+- Dockerized application and database
+- Environment variables using `.env`
+- Automatic table creation on startup
+- Sample data inserted on the first run
+- Interactive API documentation with Swagger UI
 
-## Technologies
+---
 
-- Python
+## Tech Stack
+
+- Python 3.12
 - FastAPI
-- SQLite
-- Supabase Authentication
-- Swagger UI
+- PostgreSQL
+- Psycopg
+- Docker & Docker Compose
+- Pydantic
+- Python Dotenv
 
-## Installation
+---
 
-### Clone the repository
+## Project Structure
+
+```
+.
+├── main.py
+├── database.py
+├── Dockerfile
+├── docker-compose.yml
+├── requirements.txt
+├── .env.example
+├── .gitignore
+└── README.md
+```
+
+---
+
+## Setup
+
+### 1. Clone the repository
 
 ```bash
 git clone https://github.com/Fatima-26-23/task-api.git
 cd task-api
 ```
 
-### Install dependencies
+### 2. Create a `.env` file
 
-```bash
-pip install -r requirements.txt
-```
+Copy `.env.example` and add your PostgreSQL configuration.
 
-### Create a .env file
-
-Copy `.env.example` and replace the placeholders.
+Example:
 
 ```env
-SUPABASE_URL=your_project_url
-SUPABASE_KEY=your_supabase_anon_key
+POSTGRES_HOST=db
+POSTGRES_PORT=5432
+POSTGRES_DB=taskdb
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
 ```
 
-### Run
+---
+
+## Run the Project
+
+Build and start the application and PostgreSQL:
 
 ```bash
-python -m uvicorn main:app --reload
+docker compose up --build
 ```
 
-Open:
+After the containers start:
 
+- API: http://localhost:8000
+- Swagger UI: http://localhost:8000/docs
+
+---
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|---------|----------|-------------|
+| GET | `/` | API information |
+| GET | `/health` | Health check |
+| GET | `/tasks` | Get all tasks |
+| GET | `/tasks/{id}` | Get task by ID |
+| POST | `/tasks` | Create a task |
+| PUT | `/tasks/{id}` | Update a task |
+| DELETE | `/tasks/{id}` | Delete a task |
+
+---
+
+## Database
+
+The application automatically:
+
+- Connects to PostgreSQL
+- Creates the `tasks` table if it does not exist
+- Inserts sample tasks only when the table is empty
+
+Task table:
+
+| Column | Type |
+|---------|------|
+| id | SERIAL PRIMARY KEY |
+| title | TEXT |
+| done | BOOLEAN |
+
+---
+
+## Persistence Verification
+
+Persistence was verified by:
+
+1. Starting the application using Docker Compose.
+2. Creating new tasks through the API.
+3. Stopping both containers using:
+
+```bash
+docker compose down
 ```
-http://127.0.0.1:8000/docs
+
+4. Restarting the application using:
+
+```bash
+docker compose up
+```
+
+5. Confirming that all previously created tasks were still present.
+
+---
+
+## Environment Variables
+
+Create a `.env` file using `.env.example`.
+
+Required variables:
+
+```env
+POSTGRES_HOST=db
+POSTGRES_PORT=5432
+POSTGRES_DB=taskdb
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
 ```
 
 ---
 
-## API Reference
+## Notes
 
-| Endpoint | Method | Authentication |
-|----------|--------|----------------|
-| / | GET | Public |
-| /health | GET | Public |
-| /tasks | GET | Public |
-| /tasks/{id} | GET | Public |
-| /tasks | POST | Public |
-| /tasks/{id} | PUT | Public |
-| /tasks/{id} | DELETE | Public |
-| /auth/signup | POST | Public |
-| /auth/login | POST | Public |
-| /public/info | GET | Public |
-| /protected/profile | GET | Bearer Token |
-| /protected/dashboard | GET | Bearer Token |
-| /auth/logout | POST | Bearer Token |
+- `.env` is excluded from Git using `.gitignore`.
+- PostgreSQL runs inside a Docker container.
+- Docker Compose starts both the FastAPI application and PostgreSQL with a single command.
 
 ---
 
-## Swagger UI
+## Author
 
-Open:
+**Fatima Qadeer**
 
-```
-http://127.0.0.1:8000/docs
-```
-
-Authenticate using the **Authorize** button with your JWT access token.
-
-## Swagger UI
-
-![Swagger UI](images/swagger-ui.png)
+Computer Science Student | FAST-NUCES
