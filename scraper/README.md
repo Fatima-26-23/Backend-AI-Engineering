@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-
-=======
 # The Polite Scraper
 
 A small, polite scraping pipeline for [Books to Scrape](https://books.toscrape.com):
@@ -39,4 +36,3 @@ history for progress; each stage's checkpoint is noted below as it's completed.
 - [ ] Stage 4: validate normalized records
 - [ ] Stage 5: survive failures, report the run
 - [ ] Stage 6: publish scraper evidence
->>>>>>> 8f14e24 (Stage 0: classify scraping target)
