@@ -7,6 +7,8 @@ Stage 3: visit every book page and extract the raw record fields.
 Stages 4+ (normalize/validate/store/report) not implemented yet.
 """
 
+import json
+import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,6 +16,7 @@ from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
+from pydantic import BaseModel, ValidationError, field_validator
 
 # TODO: replace with the real URL of your repo once it's public — that's the
 # whole point of naming yourself in the user-agent.
@@ -21,6 +24,7 @@ USER_AGENT = "FlyRankInternshipA9/1.0 (+https://github.com/YOUR-USERNAME/YOUR-RE
 TIMEOUT_SECONDS = 10
 REQUEST_DELAY_SECONDS = 0.5
 CACHE_DIR = Path(__file__).resolve().parent.parent / "cache"
+OUTPUT_DIR = Path(__file__).resolve().parent.parent / "output"
 MAX_CATALOGUE_PAGES = 3
 
 CATALOGUE_PAGE_1_URL = "https://books.toscrape.com/catalogue/page-1.html"
@@ -169,11 +173,104 @@ def extract_all_book_records(book_entries: list[dict]) -> list[dict]:
     return records
 
 
+class BookRecord(BaseModel):
+    """The shape of one finished, storable record. Required fields must be
+    present and correctly typed; description and rating_text are the only
+    optional ones, since not every book page has them."""
+
+    title: str
+    product_url: str
+    price_text: str
+    price_gbp: float
+    availability_text: str
+    rating_text: str | None = None
+    description: str | None = None
+    source_page: str
+    fetched_at: str
+
+    @field_validator("product_url", "source_page")
+    @classmethod
+    def must_be_absolute_https_url(cls, value: str) -> str:
+        if not value.startswith("https://"):
+            raise ValueError(f"expected an absolute https:// URL, got {value!r}")
+        return value
+
+    @field_validator("price_gbp")
+    @classmethod
+    def price_must_be_positive(cls, value: float) -> float:
+        if value <= 0:
+            raise ValueError(f"price_gbp must be positive, got {value!r}")
+        return value
+
+
+def normalize_price(price_text: str) -> float:
+    """Turn '£51.77' into 51.77. Raises ValueError if no number is found,
+    rather than silently returning something wrong."""
+    match = re.search(r"[\d]+\.?[\d]*", price_text)
+    if not match:
+        raise ValueError(f"could not find a number in price_text {price_text!r}")
+    return float(match.group())
+
+
+def normalize_record(raw_record: dict) -> dict:
+    """Turn one raw record into a normalized one: add price_gbp, keep
+    price_text alongside it. Never mutates the input."""
+    normalized = dict(raw_record)
+    normalized["price_gbp"] = normalize_price(raw_record["price_text"])
+    return normalized
+
+
+def validate_records(raw_records: list[dict]) -> tuple[list[dict], list[dict]]:
+    """Normalize and schema-validate every raw record. Dedupes on
+    product_url (a record's canonical identity) so a rerun — or a book that
+    somehow showed up twice — never produces duplicates.
+
+    Returns (valid_records, error_entries). error_entries carry the offending
+    raw record plus a human-readable reason, so nothing is silently dropped.
+    """
+    valid_by_url: dict[str, dict] = {}
+    errors: list[dict] = []
+
+    for raw_record in raw_records:
+        product_url = raw_record.get("product_url")
+        if product_url in valid_by_url:
+            continue  # already have a good record for this canonical URL
+
+        try:
+            normalized = normalize_record(raw_record)
+            book = BookRecord(**normalized)
+        except (ValueError, ValidationError) as exc:
+            errors.append({"record": raw_record, "reason": str(exc)})
+            continue
+
+        valid_by_url[product_url] = book.model_dump()
+
+    valid_records = list(valid_by_url.values())
+    print(f"valid_records={len(valid_records)} invalid_records={len(errors)}")
+    return valid_records, errors
+
+
+def store_records(valid_records: list[dict], errors: list[dict]) -> None:
+    """Write output/books.json and output/errors.json. Overwrites in full
+    each run (rather than appending) so reruns stay idempotent — the same
+    input always produces the same 60 records, never 120."""
+    OUTPUT_DIR.mkdir(exist_ok=True)
+
+    books_path = OUTPUT_DIR / "books.json"
+    books_path.write_text(json.dumps(valid_records, indent=2), encoding="utf-8")
+
+    errors_path = OUTPUT_DIR / "errors.json"
+    errors_path.write_text(json.dumps(errors, indent=2), encoding="utf-8")
+
+    print(f"stored books={len(valid_records)} -> {books_path}")
+    print(f"stored errors={len(errors)} -> {errors_path}")
+
+
 def main() -> None:
     book_entries = discover_book_urls()
     records = extract_all_book_records(book_entries)
-    if records:
-        print(records[0])
+    valid_records, errors = validate_records(records)
+    store_records(valid_records, errors)
 
 
 if __name__ == "__main__":
