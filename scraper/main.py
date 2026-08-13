@@ -3,10 +3,12 @@ The polite scraper — entry point.
 
 Stage 1: fetch and cache HTML.
 Stage 2: discover the three catalogue pages and every book link on them.
-Stages 3+ (extract/normalize/validate/store/report) not implemented yet.
+Stage 3: visit every book page and extract the raw record fields.
+Stages 4+ (normalize/validate/store/report) not implemented yet.
 """
 
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urljoin
 
@@ -74,11 +76,11 @@ def find_next_page_url(html: str, page_url: str) -> str | None:
     return None
 
 
-def discover_book_urls() -> list[str]:
+def discover_book_urls() -> list[dict]:
     """Walk the first MAX_CATALOGUE_PAGES catalogue pages via their own
-    'next' links, collecting every unique book URL along the way."""
-    discovered: list[str] = []
-    seen: set[str] = set()
+    'next' links, collecting every unique book URL along with which
+    catalogue page it was found on (its source_page, for provenance)."""
+    discovered: list[dict] = []
     page_url = CATALOGUE_PAGE_1_URL
     pages_visited = 0
 
@@ -88,22 +90,90 @@ def discover_book_urls() -> list[str]:
         html = fetch_page(page_url, cache_filename)
 
         for book_url in extract_book_urls(html, page_url):
-            discovered.append(book_url)
-            seen.add(book_url)
+            discovered.append({"url": book_url, "source_page": page_url})
 
         page_url = find_next_page_url(html, page_url)
 
-    unique_urls = list(dict.fromkeys(discovered))  # dedupe, keep order
+    # Dedupe by url, keeping the first (source_page, order) we saw it at.
+    unique_by_url: dict[str, dict] = {}
+    for entry in discovered:
+        unique_by_url.setdefault(entry["url"], entry)
+    unique_entries = list(unique_by_url.values())
+
     print(
         f"catalogue_pages={pages_visited} "
         f"discovered={len(discovered)} "
-        f"unique_urls={len(unique_urls)}"
+        f"unique_urls={len(unique_entries)}"
     )
-    return unique_urls
+    return unique_entries
+
+
+def cache_filename_for_book(product_url: str) -> str:
+    """Turn a book's product URL into a stable, unique cache filename.
+
+    e.g. https://.../catalogue/a-light-in-the-attic_1000/index.html
+      -> book-a-light-in-the-attic_1000.html
+    """
+    slug = product_url.rstrip("/").split("/")[-2]
+    return f"book-{slug}.html"
+
+
+def extract_book_record(html: str, product_url: str, source_page: str) -> dict:
+    """Return the raw record for one book detail page. Every field listed in
+    the assignment is always present; description is None (never invented)
+    when the page has none."""
+    soup = BeautifulSoup(html, "html.parser")
+    main_panel = soup.select_one(".product_main")
+
+    title = main_panel.select_one("h1").get_text(strip=True)
+    price_text = main_panel.select_one(".price_color").get_text(strip=True)
+    availability_text = main_panel.select_one(".availability").get_text(strip=True)
+
+    rating_text = None
+    rating_tag = main_panel.select_one(".star-rating")
+    if rating_tag:
+        rating_words = [c for c in rating_tag.get("class", []) if c != "star-rating"]
+        if rating_words:
+            rating_text = rating_words[0]
+
+    description = None
+    description_heading = soup.select_one("#product_description")
+    if description_heading:
+        description_p = description_heading.find_next_sibling("p")
+        if description_p:
+            description = description_p.get_text(strip=True)
+
+    fetched_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    return {
+        "title": title,
+        "product_url": product_url,
+        "price_text": price_text,
+        "availability_text": availability_text,
+        "rating_text": rating_text,
+        "description": description,
+        "source_page": source_page,
+        "fetched_at": fetched_at,
+    }
+
+
+def extract_all_book_records(book_entries: list[dict]) -> list[dict]:
+    """Fetch (and cache) every book detail page and extract its raw record."""
+    records = []
+    for entry in book_entries:
+        html = fetch_page(entry["url"], cache_filename_for_book(entry["url"]))
+        record = extract_book_record(html, entry["url"], entry["source_page"])
+        records.append(record)
+
+    print(f"detail_pages={len(records)}")
+    return records
 
 
 def main() -> None:
-    discover_book_urls()
+    book_entries = discover_book_urls()
+    records = extract_all_book_records(book_entries)
+    if records:
+        print(records[0])
 
 
 if __name__ == "__main__":
