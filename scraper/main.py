@@ -22,7 +22,7 @@ from pydantic import BaseModel, ValidationError, field_validator
 
 # TODO: replace with the real URL of your repo once it's public — that's the
 # whole point of naming yourself in the user-agent.
-USER_AGENT = "FlyRankInternshipA9/1.0 (+https://github.com/YOUR-USERNAME/YOUR-REPO)"
+USER_AGENT = "FlyRankInternshipA9/1.0 (+https://github.com/Fatima-26-23/Backend-AI-Engineering)"
 TIMEOUT_SECONDS = 10
 REQUEST_DELAY_SECONDS = 0.5
 CACHE_DIR = Path(__file__).resolve().parent.parent / "cache"
